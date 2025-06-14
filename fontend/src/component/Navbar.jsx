@@ -5,11 +5,13 @@ import { useContext } from 'react';
 
 
 const Navbar = () => {
-    const {setShowSearch, accessToken, totalCartItems, resetContext} = useContext(ShopContext);
+    const {setShowSearch, accessToken, totalCartItems, resetContext, user} = useContext(ShopContext);
 
     const handleLogout = () => {
         resetContext();
     }
+
+    console.log(user);
     return (
         <div className="flex items-center justify-between py-5 font-medium">
             <NavLink to={"/"}>
@@ -56,7 +58,7 @@ const Navbar = () => {
                             <div className='group-hover:block hidden absolute dropdown-menu right-0 pt-4'>
                                 <div className='flex flex-col gap-2 w-36 py-3 px-5 bg-slate-100 text-gray-500 rounded'>
                                     <Link to='/profile'> <p className='cursor-pointer hover:text-black'>Profile</p> </Link>
-                                    <p className='cursor-pointer hover:text-black'>Orders</p>
+                                    <Link to='/order'><p className='cursor-pointer hover:text-black'>Orders</p></Link>
                                     <p onClick={() => {
                                         handleLogout();
                                         window.location.reload();
@@ -70,11 +72,12 @@ const Navbar = () => {
                 {accessToken && (
                    <Link to="/cart" className="relative">
                         <img src={assets.cart_icon} alt="cartIcon" className='w-5 cursor-pointer' />
-                        <p className='absolute right-[-5px] bottom-[-5px] w-4 text-center leading-4 bg-black text-white aspect-square rounded-full text-[8px]'>
-                            {totalCartItems}
-                        </p>
+                        {/*<p className='absolute right-[-5px] bottom-[-5px] w-4 text-center leading-4 bg-black text-white aspect-square rounded-full text-[8px]'>
+                            {totalCartItems}   
+                        </p>*/}
                     </Link>
                 )}
+
             </div>
         </div>
 

@@ -1,15 +1,18 @@
 const dbPool = require('../config/dbConnection');
-const { findOrderById, findOrdersByUserId, createAnOrder, deleteAnOrder, findOrders, updateOrderStatus } = require('../models/order.model');
+const { findOrderById, findOrdersByUserId, createAnOrder, deleteAnOrder, findOrders, updateOrderStatus, findOrderProfile } = require('../models/order.model');
 const { findCart, deleteOneCart } = require('../models/cart.model');
 const { findUserById } = require('../models/user.model');
 const { createOnePayment, updateOnePayment } = require('../models/payment.model');
+const { soldProduct } = require('../models/variant.model');
+const { VNPay, ignoreLogger, ProductCode, VnpLocale, dateFormat} = require('vnpay');
 
 const createOrder = async (req, res, next) => {
     const connection = await dbPool.getConnection();
     await connection.beginTransaction();
     try {
         const userId = req.user.userId;
-        const { address, totalPrice, cart, paymentMethod } = req.body;
+        console.log(req.body)
+        const {customerName, address, totalPrice, cart, paymentMethod } = req.body;
 
         if (!address || !totalPrice || !cart || !paymentMethod) {
             throw Object.assign(new Error('Missing required fields'), { statusCode: 400 });
@@ -20,48 +23,41 @@ const createOrder = async (req, res, next) => {
             quantity: item.quantity
         }));
 
-        const newOrderId = await createAnOrder(userId, totalPrice, address, orderDetails, connection);
+        const newOrderId = await createAnOrder(userId, totalPrice, address, orderDetails, customerName, connection);
         if (!newOrderId) {
             throw Object.assign(new Error('Failed to create order'), { statusCode: 500 });
         }
 
-        const requestId = paymentMethod + new Date().getTime();
+        
+        const requestId = userId + new Date().getTime();
 
-        if (paymentMethod === 'momo') {
-            const accessKey = "F8BBA842ECF85";
-            const secretkey = "K951B6PE1waDMi640xX08PD3vg6EkVlz";
-            const orderId = requestId;
-            const orderInfo = "pay with MoMo";
-            const redirectUrl = "http://localhost:5001/api/v1/payment/momo";
-            const ipnUrl = "http://localhost:5001/api/v1/payment/momo";
-            const amount = totalPrice.toString();
-            const requestType = "captureWallet";
-            const extraData = "";
+        if (paymentMethod === 'vnpay') {
+            const vnpay = new VNPay({
+                tmnCode:'VBL5LT3T',
+                secureSecret:'CXF61PS6NHFY7RMR33URT4I0RT52GUAP',
+                vnpayHost: 'https://sandbox.vnpayment.vn',
+                testMode: true,
+                hashAlgorithm:'SHA512',
+                loggerFn:ignoreLogger,
+            })
 
-            const rawSignature = `accessKey=${accessKey}&amount=${amount}&extraData=${extraData}&ipnUrl=${ipnUrl}&orderId=${orderId}&orderInfo=${orderInfo}&partnerCode=MOMO&redirectUrl=${redirectUrl}&requestId=${requestId}&requestType=${requestType}`;
-            const signature = require('crypto').createHmac('sha256', secretkey).update(rawSignature).digest('hex');
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1)
 
-            const requestBody = {
-                partnerCode: "MOMO",
-                accessKey,
-                requestId,
-                amount,
-                orderId,
-                orderInfo,
-                redirectUrl,
-                ipnUrl,
-                extraData,
-                requestType,
-                signature,
-                lang: 'en'
-            };
+            const vnpayResponse = await vnpay.buildPaymentUrl({
+                vnp_Amount: totalPrice,
+                vnp_IpAddr: '127.0.0.1',
+                vnp_TxnRef: requestId,
+                vnp_OrderInfo: requestId,
+                vnp_OrderType: ProductCode.Other,
+                vnp_ReturnUrl: 'http://localhost:5173/payment-result',
+                vnp_Locale: VnpLocale.VN,
+                vnp_CreateDate: dateFormat(new Date()),
+                vnp_ExpireDate: dateFormat(tomorrow)
+            })
+
 
             await createOnePayment(newOrderId, paymentMethod, requestId, totalPrice, connection);
-
-            const axios = require('axios');
-            const response = await axios.post('https://test-payment.momo.vn/v2/gateway/api/create', requestBody, {
-                headers: { 'Content-Type': 'application/json' }
-            });
 
             const deleteCartResult = await deleteOneCart(req.user.userId, connection);
             if (!deleteCartResult) {
@@ -71,16 +67,24 @@ const createOrder = async (req, res, next) => {
             }
             await connection.commit();
             connection.release();
-            return res.status(200).json({ payUrl: response.data.payUrl });
+            return res.status(200).json({ payUrl: vnpayResponse });
 
         } else if (paymentMethod === 'cash') {
             const paymentResult = await createOnePayment(newOrderId, paymentMethod, requestId, totalPrice, connection);
             if (!paymentResult) {
                 throw Object.assign(new Error('Failed to create payment'), { statusCode: 500 });
             }
+            for(let i = 0; i < orderDetails.length; i++) {
+                console.log('element: ', orderDetails[i]);
+                const soldResult = await soldProduct(orderDetails[i].productVariantId, orderDetails[i].quantity, connection);
+                if(!soldResult) {
+                    const error = new Error('Failed to sold product');
+                    error.statusCode = 500;
+                    throw error;
+                }
+            }
 
-            const cartId = cart[0].cartId;
-            const deleteCartResult = await deleteOneCart(cartId, connection);
+            const deleteCartResult = await deleteOneCart(req.user.userId, connection);
             if (!deleteCartResult) {
                 const error = new Error('Failed to delete cart');
                 error.statusCode = 500;
@@ -88,6 +92,11 @@ const createOrder = async (req, res, next) => {
             }
             await connection.commit();
             connection.release();
+
+            res.status(200).json({
+                success: true,
+                message: 'success'
+            })
         } else {
             throw Object.assign(new Error('Invalid payment method'), { statusCode: 400 });
         }
@@ -96,12 +105,20 @@ const createOrder = async (req, res, next) => {
         await connection.rollback();
         connection.release();
         next(error);
+    } finally {
+        if (connection) connection.release();
     }
 };
 
 
 const getOrderByUserId = async (req, res, next) => {
     try {
+        if(req.user.role != 'admin') {
+            const error = new Error('This user can\'t access this resource')
+            error.statusCode = 403;
+            throw error;
+        }
+
         const userId = req.body.userId;
         if (!userId) {
             const error = new Error('User ID is required');
@@ -254,10 +271,37 @@ const updateOrder = async (req, res, next) => {
     }
 }
 
+const getOrderProfile = async (req, res, next) => {
+    try {
+        const userId = req.user.userId;
+        const {page, limit} = req.query;
+        const parsedPage = parseInt(page);
+        const parsedLimit = parseInt(limit);
+        const orders = await findOrderProfile(userId, parsedPage, parsedLimit);
+        
+        if (!orders) {
+            const error = new Error('False to get orders profile')
+            error.statusCode = 404;
+            throw error
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'Get orders profile successfully',
+            data: {
+                orders
+            }
+        })
+    } catch (error) {
+        next(error);
+    }
+}
+
 module.exports = {
     createOrder,
     getOrderByUserId,
     getOrders,
     deleteOrder,
-    updateOrder
+    updateOrder,
+    getOrderProfile
 };

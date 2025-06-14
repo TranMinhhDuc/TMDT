@@ -4,7 +4,7 @@ import { ShopContext } from "../../context/ShopContext"
 const useCreateOrders = () => {
     const {accessToken} = useContext(ShopContext);
 
-    const createOrders = useCallback( async (address, paymentMethod, cart, totalPrice) => {
+    const createOrders = useCallback( async (customerName, address, paymentMethod, cart, totalPrice) => {
         try {
             const response = await fetch('http://localhost:5001/api/v1/order', {
                 method: 'POST',
@@ -12,7 +12,7 @@ const useCreateOrders = () => {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${accessToken}`,
                 },
-                body: JSON.stringify({address, paymentMethod, cart, totalPrice})
+                body: JSON.stringify({customerName, address, paymentMethod, cart, totalPrice})
             })
 
             if (!response.ok) {

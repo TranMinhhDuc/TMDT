@@ -1,13 +1,13 @@
 const dbPool = require('../config/dbConnection');
 
-const createAnOrder = async (userId, totalAmount, address, orderDetails, connection) => {
+const createAnOrder = async (userId, totalAmount, address, orderDetails, customerName, connection) => {
     try {
         const query = `
-            INSERT INTO orders (userId, totalPrice, status, address)
-            VALUES (?, ?, ?, ?);
+            INSERT INTO orders (userId, totalPrice, status, address, userPayment)
+            VALUES (?, ?, ?, ?, ?);
         `;
 
-        const [result] = await connection.query(query, [userId, totalAmount, 'pending', address]);
+        const [result] = await connection.query(query, [userId, totalAmount, 'pending', address, customerName]);
         const orderId = result.insertId;
         console.log(query);
 
@@ -62,11 +62,11 @@ const findOrderById = async (orderId) => {
 const findOrdersByUserId = async (userId) => {
     try {
         const query = ` 
-            SELECT o.orderId, o.userId, o.totalPrice, o.status, o.address,
+            SELECT o.orderId, o.userId, o.totalPrice, o.status, o.address, o.userPayment,
                 p.paymentId, p.paymentMethod, p.paymentStatus
             FROM orders o
             LEFT JOIN payment p ON o.orderId = p.orderId
-            WHERE o.userId = ?;
+            WHERE o.userId = ? ;
         `;
 
         const [ orders ] = await dbPool.query(query, [userId]);
@@ -135,11 +135,86 @@ const updateOrderStatus = async (orderId, status, connection) => {
     }
 }
 
+const findOrderProfile = async (userId, page = 1, limit = 10) => {
+    try {
+        const query = `
+            SELECT o.orderId, o.totalPrice, o.status, o.address, o.userPayment,
+                   oi.orderItemId, oi.quantity,
+                   pv.color, pv.size,
+                   p.name, p.price,
+                   i.path
+            FROM orders o
+                     LEFT JOIN orderitems oi ON o.orderId = oi.orderId
+                     LEFT JOIN productvariant pv ON pv.productVariantId = oi.productVariantId
+                     LEFT JOIN product p ON p.productId = pv.productId
+                     LEFT JOIN images i ON i.imageId = (
+                SELECT imageId
+                FROM images
+                WHERE productId = p.productId
+                ORDER BY imageId ASC
+                LIMIT 1
+                )
+
+            WHERE o.userId = ?
+            ORDER BY o.orderId ASC  
+            LIMIT ${limit} OFFSET ${page};
+        `;
+
+        const [result] = await dbPool.execute(query, [userId]);
+
+        const objectOrders = result.reduce((acc, curr) => {
+            const {
+                orderId, 
+                totalPrice, 
+                status,
+                address,
+                userPayment,
+                orderItemId,
+                quantity, 
+                color,
+                size, 
+                name,
+                price,
+                path
+            } = curr;
+
+            if(!acc[orderId]) {
+                acc[orderId] = {
+                    orderId,
+                    totalPrice,
+                    status,
+                    address,
+                    userPayment,
+                    items: []
+                }
+            }
+
+            acc[orderId].items.push ({
+                orderItemId,
+                quantity,
+                color,
+                size,
+                name,
+                price,
+                path
+            });
+
+            return acc;
+        }, {});
+
+        const orders = Object.values(objectOrders);
+        return orders;
+    } catch (error) {
+        console.error('Error in getOrderProfile', error);
+        throw error;
+    }
+}
 module.exports = {  
     createAnOrder,
     findOrderById,
     findOrdersByUserId,
     deleteAnOrder,
     findOrders,
-    updateOrderStatus
+    updateOrderStatus,
+    findOrderProfile
 };

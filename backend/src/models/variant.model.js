@@ -52,7 +52,24 @@ const updateVariant = async (variant, connection) => {
     }
 };
 
+const soldProduct = async (productvariantId, quantity, connection) => {
+    try {
+        const query = `
+            UPDATE productvariant
+            SET quantity = quantity - ?
+            WHERE productVariantId = ?;
+        `;
+
+        const [ result ] = await connection.execute(query, [quantity, productvariantId]);
+        console.log(query);
+        return result.affectedRows > 0;
+    } catch (error) {
+        console.error('Error in Sold Product', error);
+        throw error
+    }
+}
 module.exports = {
     createVariant,
-    updateVariant
+    updateVariant,
+    soldProduct
 };

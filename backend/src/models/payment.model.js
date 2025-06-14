@@ -7,7 +7,7 @@ const createOnePayment = async (orderId, paymentMethod, paymentCode, totalPrice,
 
         console.log(query);
 
-        return result.affectRows > 0;
+        return result.affectedRows > 0;
     } catch (error) {
         console.error('Error creating payment:', error);
         throw error;

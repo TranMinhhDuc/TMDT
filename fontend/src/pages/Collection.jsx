@@ -28,6 +28,7 @@ const Collection = () => {
 
     const { categories } = useCategory();
 
+
     if(!showSearch) {
         setSearch('');
     }  

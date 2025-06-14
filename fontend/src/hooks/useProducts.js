@@ -5,6 +5,7 @@ const useProducts = (name, price, categoryId, page = 1, limit = 20) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [totalPages, setTotalPages] = useState(1);
+    const [currentPage, setCurrentPage] = useState(1);
     
     useEffect(() => {
         const fetchProducts = async () => {
@@ -21,6 +22,7 @@ const useProducts = (name, price, categoryId, page = 1, limit = 20) => {
                 const data = await response.json();
                 setProducts(data.products.products);
                 setTotalPages(data.products.totalPage);
+                setCurrentPage(data.products.currentPage);
             } catch (err) {
                 setError(err.message || "Có lỗi xảy ra khi tải sản phẩm");
             } finally {
@@ -31,7 +33,7 @@ const useProducts = (name, price, categoryId, page = 1, limit = 20) => {
         fetchProducts();
     }, [name, price, categoryId, limit, page]);
 
-    return { products, loading, error, totalPages };
+    return { products, loading, error, totalPages, currentPage };
 };
 
 export default useProducts;

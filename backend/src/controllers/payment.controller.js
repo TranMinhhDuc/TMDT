@@ -1,28 +1,20 @@
 const dbPool = require('../config/dbConnection');
 const { updateOnePayment, updatePaymentById } = require('../models/payment.model');
 
-const momoResult = async (req, res, next) => {
+const vnpayResult = async (req, res, next) => {
     const connection = await dbPool.getConnection();
     await connection.beginTransaction();
 
     try {
-        const { requestId, resultCode } = req.query;
-        console.log('Received requestId:', requestId);
-        console.log('Received resultCode:', resultCode);
+        const { vnp_orderId, resultCode } = req.body;
+
+        if(resultCode !== '00') {
+            const error = new Error('Failed to paid');
+            error.statusCode = 500;
+            throw error;
+        }
         
-        if (!requestId || !resultCode) {
-            const error = new Error('Missing requestId or resultCode');
-            error.statusCode = 400;
-            throw error;
-        }
-
-        if (resultCode !== '99') {
-            const error = new Error('Payment failed');
-            error.statusCode = 400;
-            throw error;
-        }
-
-        const result = await updateOnePayment('paid', requestId, connection);
+        const result = await updateOnePayment('paid', vnp_orderId, connection);
 
         if (!result) {
             const error = new Error('payment result failed');
@@ -34,7 +26,7 @@ const momoResult = async (req, res, next) => {
 
         return res.status(200).json({
             success: true,
-            message: 'Momo payment result received successfully',
+            message: 'vnpay payment result received successfully',
         });
     } catch (error) {
         await connection.rollback();
@@ -78,6 +70,6 @@ const updatePayment = async (req, res, next) => {
 }
 
 module.exports = {
-    momoResult,
+    vnpayResult,
     updatePayment
 };

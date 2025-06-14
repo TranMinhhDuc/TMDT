@@ -40,6 +40,7 @@ const Login = () => {
                     setUser(user);
                     setMessage(message);
                     localStorage.setItem('accessToken', token);
+                    localStorage.setItem('shop-app-user', JSON.stringify(user));
                 } else {
                     setMessage(message);
                 }
@@ -60,6 +61,8 @@ const Login = () => {
                     setUser(user);
                     setMessage(message);
                     localStorage.setItem('accessToken', token);
+                    localStorage.setItem('shop-app-user', JSON.stringify(user));
+
                 } else {
                     setMessage(message);
                 }

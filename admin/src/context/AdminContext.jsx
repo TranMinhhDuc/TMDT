@@ -1,6 +1,6 @@
 import React, { createContext, useState } from "react";
 
-export const ShopContext = createContext();
+export const AdminContext = createContext();
 
 const initialState = {
     currency: "vnd",
@@ -8,25 +8,21 @@ const initialState = {
     showSearch: false,
     accessToken: localStorage.getItem('accessToken') || null, 
     user: JSON.parse(localStorage.getItem('shop-app-user')) || null,
-    totalCartItems: localStorage.getItem('totalCartItems') ? parseInt(localStorage.getItem('totalCartItems')) : 0,
 };
 
-const ShopContextProvider = ({ children }) => {
+const AdminContextProvider = ({ children }) => {
     const [search, setSearch] = useState(initialState.search);
     const [showSearch, setShowSearch] = useState(initialState.showSearch);
     const [accessToken, setAccessToken] = useState(initialState.accessToken);
     const [user, setUser] = useState(initialState.user);
-    const [totalCartItems, setTotalCartItems] = useState(initialState.totalCartItems);
 
     const resetContext = () => {
         setSearch("");
         setShowSearch(false);
         setAccessToken(null);
         setUser(null);
-        setTotalCartItems(null);
         localStorage.removeItem("accessToken");
         localStorage.removeItem("shop-app-user");
-        localStorage.removeItem("totalCartItems");
     };
 
     const value = {
@@ -35,15 +31,14 @@ const ShopContextProvider = ({ children }) => {
         showSearch, setShowSearch,
         accessToken, setAccessToken,
         user, setUser,
-        totalCartItems, setTotalCartItems,
         resetContext,
     };
 
     return (
-        <ShopContext.Provider value={value}>
+        <AdminContext.Provider value={value}>
             {children}
-        </ShopContext.Provider>
+        </AdminContext.Provider>
     );
 };
 
-export default ShopContextProvider;
+export default AdminContextProvider;

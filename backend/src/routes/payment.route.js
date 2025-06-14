@@ -1,9 +1,9 @@
 const express = require('express');
-const { momoResult, updatePayment } = require('../controllers/payment.controller');
+const { vnpayResult, updatePayment } = require('../controllers/payment.controller');
 
 const paymentRouter = express.Router();
 
-paymentRouter.get('/momo', momoResult);
+paymentRouter.post('/vnpay', vnpayResult);
 paymentRouter.put('/', updatePayment);
 
 module.exports = paymentRouter;

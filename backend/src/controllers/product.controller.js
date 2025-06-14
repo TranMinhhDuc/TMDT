@@ -48,11 +48,12 @@ const createProduct = async (req, res, next) => {
     await connection.beginTransaction();
 
     try {
+        console.log(req.body);
         const categoryId = req.body.categoryId;
         const name = req.body.name;
         const description = req.body.description;
         const price = req.body.price;
-        const variants = JSON.parse(req.body.variants);
+        const variants = JSON.parse(req.body.variants);;
         console.log(categoryId, name, description, price, variants);
         if (req.user.role !== 'admin') {
             const error = new Error('This user can\'t access resource');
